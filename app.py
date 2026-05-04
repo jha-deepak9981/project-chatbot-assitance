@@ -7,9 +7,10 @@
 import google.generativeai as genai # Changed: Import Google Generative AI
 
 # ── SETUP ──────────────────────────────────────────────────
-from google.colab import userdata # Keep this for Colab secrets
+#from google.colab import userdata # Keep this for Colab secrets
 
-api_key = userdata.get("GEMINI_API_KEY") # Changed: Get GOOGLE_API_KEY from secrets
+import streamlit as st
+api_key = st.secrets["gemini_api_key"]
 genai.configure(api_key=api_key) # Changed: Configure Gemini API
 
 # Conversation history — list of dictionaries
