@@ -8,7 +8,12 @@ import google.generativeai as genai
 
 # ── SETUP ──────────────────────────────────────────────────
 
-genai.configure(api_key=st.secrets["gemini_api_key"])
+api_key = st.sidebar.text_input("Gemini API Key", type="password")
+if not api_key:
+    st.info("Enter your Gemini API key in the sidebar to start chatting.")
+    st.stop()
+
+genai.configure(api_key=api_key)
 
 # The system prompt — sets the AI's personality and rules
 SYSTEM_PROMPT = """You are Alex, a friendly and knowledgeable AI assistant.
