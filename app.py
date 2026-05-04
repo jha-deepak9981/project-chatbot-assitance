@@ -2,20 +2,13 @@
 # ─────────────────────────────────────────────────────────
 # COMPLETE AI CHATBOT — Module 3 Capstone Project
 # ─────────────────────────────────────────────────────────
-# pip install google-generativeai # Changed: Install Google Generative AI library
-
-import google.generativeai as genai # Changed: Import Google Generative AI
-
-# ── SETUP ──────────────────────────────────────────────────
-#from google.colab import userdata # Keep this for Colab secrets
 
 import streamlit as st
-api_key = st.secrets["gemini_api_key"]
-genai.configure(api_key=api_key) # Changed: Configure Gemini API
+import google.generativeai as genai
 
-# Conversation history — list of dictionaries
-# Each message: {"role": "user" or "assistant", "content": "text"}
-history = []
+# ── SETUP ──────────────────────────────────────────────────
+
+genai.configure(api_key=st.secrets["gemini_api_key"])
 
 # The system prompt — sets the AI's personality and rules
 SYSTEM_PROMPT = """You are Alex, a friendly and knowledgeable AI assistant.
@@ -26,98 +19,63 @@ If you don't know something, say so honestly."""
 
 # Instantiate the Gemini model once with system instruction and generation config
 model = genai.GenerativeModel(
-    model_name="gemini-pro-latest", # Using gemini-pro as a stable model
+    model_name="gemini-pro-latest",
     generation_config={
-        "max_output_tokens": 1024, # Maximum length of response (in tokens)
-        "temperature": 0.7         # Creativity level (0=factual, 1=creative)
+        "max_output_tokens": 1024,
+        "temperature": 0.7
     },
-    system_instruction=SYSTEM_PROMPT # Set system instruction here
+    system_instruction=SYSTEM_PROMPT
 )
+
+# ── SESSION STATE ──────────────────────────────────────────
+# Streamlit reruns the script on every interaction, so history lives in session_state
+if "history" not in st.session_state:
+    st.session_state.history = []
 
 # ── CORE FUNCTION ──────────────────────────────────────────
 def chat(user_input):
     """Send a message to Gemini and get a response, maintaining history."""
 
-    # 1. Add the user's message to history
-    history.append({
-        "role": "user",
-        "content": user_input
-    })
+    st.session_state.history.append({"role": "user", "content": user_input})
 
-    # 2. Call the API with the FULL history (so AI remembers everything)
     try:
         # Convert history format for Gemini API (roles 'user' and 'model')
         gemini_history = []
-        for msg in history:
+        for msg in st.session_state.history:
             gemini_role = "user" if msg["role"] == "user" else "model"
             gemini_history.append({"role": gemini_role, "parts": [{"text": msg["content"]}]})
 
-        response = model.generate_content(
-            contents=gemini_history
-        )
+        response = model.generate_content(contents=gemini_history)
+        reply = response.text
 
-        # 3. Extract the reply text
-        reply = response.text # Changed: Gemini response parsing
-
-        # 4. Add AI's reply to history (so it's remembered next turn)
-        history.append({
-            "role": "assistant", # Keep 'assistant' for internal consistency
-            "content": reply
-        })
-
+        st.session_state.history.append({"role": "assistant", "content": reply})
         return reply
 
-    except Exception as e: # General exception handling for Gemini errors
-        # You can add more specific Gemini API exception handling if needed
+    except Exception as e:
         return f"Unexpected error: {str(e)}"
 
-# ── UTILITY FUNCTIONS ──────────────────────────────────────
-def show_history():
-    """Print the full conversation history."""
-    print("""
-─── Conversation History ───""")
-    for i, msg in enumerate(history):
-        label = "You" if msg["role"] == "user" else "Alex"
-        print(f"{label}: {msg['content'][:100]}...")  # Truncate for display
-    print("""───────────────────────────
-""")
+# ── UI ─────────────────────────────────────────────────────
 
-def clear_memory():
-    """Clear the conversation history."""
-    history.clear()
-    print("""Memory cleared! Starting fresh.
-""")
+st.title("Alex AI Chatbot")
+st.caption("Powered by Gemini")
 
-# ── MAIN LOOP ──────────────────────────────────────────────
-def main():
-    print("Alex AI Chatbot (powered by Gemini)") # Changed: Update chatbot name
-    print("Commands: 'quit' to exit | 'history' to see conversation | 'clear' to reset")
-    print("─" * 60)
+# Clear conversation button
+if st.button("Clear Conversation"):
+    st.session_state.history = []
+    st.rerun()
 
-    while True:
-        # Get user input
-        user_input = input("\nYou: ").strip()
+# Display conversation history
+for msg in st.session_state.history:
+    role = "user" if msg["role"] == "user" else "assistant"
+    with st.chat_message(role):
+        st.write(msg["content"])
 
-        # Handle empty input
-        if not user_input:
-            continue
+# Chat input at the bottom
+if user_input := st.chat_input("Type your message..."):
+    with st.chat_message("user"):
+        st.write(user_input)
 
-        # Handle special commands
-        if user_input.lower() == "quit":
-            print("Goodbye! Thanks for chatting with Alex.")
-            break
-        elif user_input.lower() == "history":
-            show_history()
-            continue
-        elif user_input.lower() == "clear":
-            clear_memory()
-            continue
+    reply = chat(user_input)
 
-        # Send to AI and print response
-        response = chat(user_input)
-        print(f"\nAlex: {response}")
-
-# Run the chatbot
-if __name__ == "__main__":
-    main()
-
+    with st.chat_message("assistant"):
+        st.write(reply)
